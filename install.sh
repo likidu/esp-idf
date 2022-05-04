@@ -3,7 +3,7 @@
 set -e
 set -u
 
-basedir=$(dirname "$0")
+basedir=$(dirname -- "$0")
 IDF_PATH=$(cd "${basedir}"; pwd)
 export IDF_PATH
 
