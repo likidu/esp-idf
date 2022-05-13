@@ -375,6 +375,8 @@ macro(project project_name)
 
     message(STATUS "Building ESP-IDF components for target ${IDF_TARGET}")
 
+    message(STATUS "Included components >>>>> ${components}")
+
     idf_build_process(${IDF_TARGET}
                     SDKCONFIG_DEFAULTS "${sdkconfig_defaults}"
                     SDKCONFIG ${sdkconfig}

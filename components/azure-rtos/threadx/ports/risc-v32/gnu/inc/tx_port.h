@@ -61,8 +61,12 @@
 /* Include prototypes for memset.  */
 
 #include <string.h>
-// #include <intrinsics.h>
 
+#include "soc/interrupt_core0_reg.h"
+#include "soc/soc.h"
+#include "soc/system_reg.h"
+#include "riscv/csr.h"
+#include "riscv/encoding.h"
 
 /* Determine if the optional ThreadX user define file should be used.  */
 
@@ -124,6 +128,9 @@ typedef unsigned short                          USHORT;
 
 #define TX_INT_DISABLE                          0x00000000  /* Disable interrupts value */
 #define TX_INT_ENABLE                           0x00000008  /* Enable interrupt value   */
+
+// interrupt module will mask interrupt with priority less than threshold
+#define RVHAL_EXCM_LEVEL                        4
 
 
 /* Define the clock source for trace event entry time stamp. The following two item are port specific.  
@@ -245,9 +252,54 @@ unsigned int                                    _tx_thread_interrupt_control(uns
 
 #else
 
-#define TX_INTERRUPT_SAVE_AREA                  __istate_t interrupt_save;
-#define TX_DISABLE                              {interrupt_save = __get_interrupt_state();__disable_interrupt();};
-#define TX_RESTORE                              {__set_interrupt_state(interrupt_save);};
+static inline __attribute__ ((always_inline)) UINT __get_interrupt_state(void)
+{
+    UINT state;
+    unsigned old_mstatus = RV_CLEAR_CSR(mstatus, MSTATUS_MIE);
+    state = REG_READ(INTERRUPT_CORE0_CPU_INT_THRESH_REG);
+    REG_WRITE(INTERRUPT_CORE0_CPU_INT_THRESH_REG, RVHAL_EXCM_LEVEL);
+    RV_SET_CSR(mstatus, old_mstatus & MSTATUS_MIE);
+    /**
+     * In theory, this function should not return immediately as there is a
+     * delay between the moment we mask the interrupt threshold register and
+     * the moment a potential lower-priority interrupt is triggered (as said
+     * above), it should have a delay of 2 machine cycles/instructions.
+     *
+     * However, in practice, this function has an epilogue of one instruction,
+     * thus the instruction masking the interrupt threshold register is
+     * followed by two instructions: `state` and `csrrs` (RV_SET_CSR).
+     * That's why we don't need any additional nop instructions here.
+     */
+    return state;
+}
+
+static inline __attribute__ ((always_inline)) void __set_interrupt_state(UINT state)
+{
+    REG_WRITE(INTERRUPT_CORE0_CPU_INT_THRESH_REG, state);
+    /**
+     * The delay between the moment we unmask the interrupt threshold register
+     * and the moment the potential requested interrupt is triggered is not
+     * null: up to three machine cycles/instructions can be executed.
+     *
+     * When compilation size optimization is enabled, this function and its
+     * callers returning void will have NO epilogue, thus the instruction
+     * following these calls will be executed.
+     *
+     * If the requested interrupt is a context switch to a higher priority
+     * task then the one currently running, we MUST NOT execute any instruction
+     * before the interrupt effectively happens.
+     * In order to prevent this, force this routine to have a 3-instruction
+     * delay before exiting.
+     */
+    asm volatile ( "nop" );
+    asm volatile ( "nop" );
+    asm volatile ( "nop" );
+}
+
+#define TX_INTERRUPT_SAVE_AREA                  register UINT interrupt_save;
+
+#define TX_DISABLE                              interrupt_save = __get_interrupt_state();
+#define TX_RESTORE                              __set_interrupt_state(interrupt_save);
 
 #endif
 
