@@ -296,6 +296,14 @@ static inline __attribute__ ((always_inline)) void __set_interrupt_state(UINT st
     asm volatile ( "nop" );
 }
 
+/* FIXME this maps FreeRTOS RISCV portmaro.h defines */
+#define portENTER_CRITICAL(mux)                 {(void)mux;  vPortEnterCritical();}
+#define portEXIT_CRITICAL(mux)                  {(void)mux;  vPortExitCritical();}
+
+#define portSET_INTERRUPT_MASK_FROM_ISR()       __get_interrupt_state()
+#define portCLEAR_INTERRUPT_MASK_FROM_ISR(uxSavedStatusValue)   __set_interrupt_state(uxSavedStatusValue)
+
+
 #define TX_INTERRUPT_SAVE_AREA                  register UINT interrupt_save;
 
 #define TX_DISABLE                              interrupt_save = __get_interrupt_state();

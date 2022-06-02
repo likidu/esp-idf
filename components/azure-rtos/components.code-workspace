@@ -1,0 +1,26 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../soc"
+		},
+		{
+			"path": "../riscv"
+		},
+		{
+			"path": "../freertos"
+		},
+		{
+			"path": "../esp_system"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"esp_log.h": "c",
+			"tx_thread.h": "c",
+			"startup_internal.h": "c"
+		}
+	}
+}
